@@ -14,11 +14,13 @@ module Circuits
       # @option opts [FixNum] :ouput_count The number of outputs
       # @option opts [Hash] :port_mappings The port_mappings to use
       def initialize(opts = {})
-        input_count = opts[:input_count] || default_input_count
-        output_count = opts[:output_count] || default_output_count
+        input_count = opts[:input_count]
+        output_count = opts[:output_count]
         @inputs = input_count.times.collect { Circuits::Terminal::Input.new }
         @outputs = output_count.times.collect { Circuits::Terminal::Output.new }
         @port_mappings = opts[:port_mappings] || default_port_mappings
+        @sub_components = opts[:sub_components] || []
+        @ticks = opts[:ticks] || 0
       end
 
       # the inputs of this component
@@ -34,6 +36,14 @@ module Circuits
         res = self[method_name]
         super if res.nil?
         res
+      end
+
+      # Computes the outputs based on the inputs and previous state
+      def tick
+        @ticks.times.each do
+          @sub_components.each(&:tick)
+          @sub_components.each(&:tock)
+        end
       end
 
       # Sets all the outputs expose what was set in #tick
@@ -52,7 +62,7 @@ module Circuits
       # @param port [Symbol] The symbol that represents the terminal
       # @return [Input, Output] The terminal
       def [](port)
-        port_mapping = port_mappings[port]
+        port_mapping = @port_mappings[port]
         return nil if port_mapping.nil?
         port_number = port_mapping[:number]
         case port_mapping[:type]
@@ -64,8 +74,6 @@ module Circuits
       end
 
       private
-
-      attr_reader :port_mappings
 
       def default_port_mappings
         res = {}
